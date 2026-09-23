@@ -1,23 +1,22 @@
-/*
- * Meta Pillar Mapping
- * -------------------
- * Sets Leads.Top_Category from Leads.Meta_Ad_Pillar (the answer to
- * "Describa su negocio" pushed by LeadChain from the Meta lead form).
- *
- * Why this is needed: Map Dependency Fields only filter picklist options
- * in the CRM UI. They never fill the child field, so leads created through
- * the API (LeadChain) arrive with Top_Category empty.
- *
- * Workflow setup (Settings > Automation > Workflow Rules > Leads):
- *   When:       Record action = Create or Edit
- *               + "Repeat this workflow whenever a Lead is edited"
- *               (or: Field update > Meta_Ad_Pillar)
- *   Condition:  Meta_Ad_Pillar is not empty
- *   Instant action: Function > this function
- *   Argument:   leadId = Leads - Lead Id
- */
 void automation.metaPillarMapping(string leadId)
 {
+	// Meta Pillar Mapping
+	// -------------------
+	// Sets Leads.Top_Category from Leads.Meta_Ad_Pillar (the answer to
+	// "Describa su negocio" pushed by LeadChain from the Meta lead form).
+	//
+	// Why this is needed: Map Dependency Fields only filter picklist options
+	// in the CRM UI. They never fill the child field, so leads created through
+	// the API (LeadChain) arrive with Top_Category empty.
+	//
+	// Workflow setup (Settings > Automation > Workflow Rules > Leads):
+	//   When:       Record action = Create or Edit
+	//               + "Repeat this workflow whenever a Lead is edited"
+	//               (or: Field update > Meta_Ad_Pillar)
+	//   Condition:  Meta_Ad_Pillar is not empty
+	//   Instant action: Function > this function
+	//   Argument:   leadId = Leads - Lead Id
+	//
 	// Deluge has no sleep(). Re-read the record a few times instead, so a
 	// value that LeadChain writes a moment after the create is still seen.
 	// The Edit trigger above covers anything that arrives later than this.
