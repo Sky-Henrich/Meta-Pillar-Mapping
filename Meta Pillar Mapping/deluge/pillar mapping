@@ -2,8 +2,11 @@ void automation.metaPillarMapping(string leadId)
 {
 	// Meta Pillar Mapping
 	// -------------------
-	// Sets Leads.Top_Category from Leads.Meta_Ad_Pillar (the answer to
-	// "Describa su negocio" pushed by LeadChain from the Meta lead form).
+	// For leads synced from the Meta lead form by LeadChain:
+	//   - Sets Leads.Top_Category from Leads.Meta_Ad_Pillar (the answer to
+	//     "Describa su negocio").
+	//   - Sets Leads.Language to "Español" when Lead_Source is "Meta Ads"
+	//     and Language is empty.
 	//
 	// Why this is needed: Map Dependency Fields only filter picklist options
 	// in the CRM UI. They never fill the child field, so leads created through
@@ -13,7 +16,7 @@ void automation.metaPillarMapping(string leadId)
 	//   When:       Record action = Create or Edit
 	//               + "Repeat this workflow whenever a Lead is edited"
 	//               (or: Field update > Meta_Ad_Pillar)
-	//   Condition:  Meta_Ad_Pillar is not empty
+	//   Condition:  Lead Source is Meta Ads  OR  Meta_Ad_Pillar is not empty
 	//   Instant action: Function > this function
 	//   Argument:   leadId = Leads - Lead Id
 	//
@@ -23,6 +26,8 @@ void automation.metaPillarMapping(string leadId)
 	attempts = {1,2,3,4,5};
 	pillar = "";
 	currentTop = "";
+	leadSource = "";
+	currentLanguage = "";
 	for each attempt in attempts
 	{
 		if(pillar == "")
@@ -30,46 +35,58 @@ void automation.metaPillarMapping(string leadId)
 			lead = zoho.crm.getRecordById("Leads",leadId.toLong());
 			pillar = ifnull(lead.get("Meta_Ad_Pillar"),"").trim();
 			currentTop = ifnull(lead.get("Top_Category"),"");
+			leadSource = ifnull(lead.get("Lead_Source"),"");
+			currentLanguage = ifnull(lead.get("Language"),"");
 		}
 	}
-	if(pillar == "")
-	{
-		info "Lead " + leadId + ": Meta_Ad_Pillar still empty, nothing to map.";
-		return;
-	}
-	// Match on the leading keyword ("Visita", "Experiencia", ...) so small
-	// differences in accents, dashes or spacing from Meta don't break it.
-	key = pillar.toLowerCase();
-	if(key.contains(" - "))
-	{
-		key = key.getPrefix(" - ").trim();
-	}
-	else if(key.contains("-"))
-	{
-		key = key.getPrefix("-").trim();
-	}
-	keyMap = Map();
-	keyMap.put("visita","Visit");
-	keyMap.put("experiencia","Experience");
-	keyMap.put("reubicación","Relocate");
-	keyMap.put("reubicacion","Relocate");
-	keyMap.put("reside","Stay");
-	keyMap.put("vive","Live");
-	topCategory = keyMap.get(key);
-	if(topCategory == null)
-	{
-		info "Lead " + leadId + ": no Top_Category mapping for '" + pillar + "'.";
-		return;
-	}
-	if(currentTop == topCategory)
-	{
-		info "Lead " + leadId + ": Top_Category already '" + topCategory + "'.";
-		return;
-	}
 	updateMap = Map();
-	updateMap.put("Top_Category",topCategory);
-	// Fire workflows so rules that depend on Top_Category still run. This
-	// does not loop: Meta_Ad_Pillar is unchanged by this update.
+	// Language: every Meta lead is Spanish-speaking. Only fill it when empty
+	// so a value a salesperson set by hand is never overwritten.
+	if(leadSource == "Meta Ads" && currentLanguage == "")
+	{
+		updateMap.put("Language","Español");
+	}
+	// Top_Category: match on the leading keyword ("Visita", "Experiencia", ...)
+	// so small differences in accents, dashes or spacing from Meta don't break it.
+	if(pillar != "")
+	{
+		key = pillar.toLowerCase();
+		if(key.contains(" - "))
+		{
+			key = key.getPrefix(" - ").trim();
+		}
+		else if(key.contains("-"))
+		{
+			key = key.getPrefix("-").trim();
+		}
+		keyMap = Map();
+		keyMap.put("visita","Visit");
+		keyMap.put("experiencia","Experience");
+		keyMap.put("reubicación","Relocate");
+		keyMap.put("reubicacion","Relocate");
+		keyMap.put("reside","Stay");
+		keyMap.put("vive","Live");
+		topCategory = keyMap.get(key);
+		if(topCategory == null)
+		{
+			info "Lead " + leadId + ": no Top_Category mapping for '" + pillar + "'.";
+		}
+		else if(currentTop != topCategory)
+		{
+			updateMap.put("Top_Category",topCategory);
+		}
+	}
+	else
+	{
+		info "Lead " + leadId + ": Meta_Ad_Pillar still empty, Top_Category not mapped.";
+	}
+	if(updateMap.isEmpty())
+	{
+		info "Lead " + leadId + ": nothing to update.";
+		return;
+	}
+	// Fire workflows so rules that depend on these fields still run. This
+	// does not loop: Meta_Ad_Pillar and Lead_Source are unchanged by this update.
 	response = zoho.crm.updateRecord("Leads",leadId.toLong(),updateMap,{"trigger":{"workflow"}});
-	info "Lead " + leadId + ": '" + pillar + "' -> '" + topCategory + "' | " + response;
+	info "Lead " + leadId + ": updated " + updateMap + " | " + response;
 }
