@@ -7,6 +7,8 @@ void automation.metaPillarMapping(string leadId)
 	//     "Describa su negocio").
 	//   - Sets Leads.Language to "Español" when Lead_Source is "Meta Ads"
 	//     and Language is empty.
+	//   - Ticks Leads.Cadence_Ready so the lead enters the cadence, the first
+	//     time Top_Category gets filled for a Meta Ads lead.
 	//
 	// Why this is needed: Map Dependency Fields only filter picklist options
 	// in the CRM UI. They never fill the child field, so leads created through
@@ -74,6 +76,12 @@ void automation.metaPillarMapping(string leadId)
 		else if(currentTop != topCategory)
 		{
 			updateMap.put("Top_Category",topCategory);
+			// Cadence: only on the first mapping (Top_Category was empty), so
+			// unticking Cadence Ready by hand later is not undone on the next edit.
+			if(leadSource == "Meta Ads" && currentTop == "")
+			{
+				updateMap.put("Cadence_Ready",true);
+			}
 		}
 	}
 	else
